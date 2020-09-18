@@ -1,0 +1,6 @@
+# Project exclude paths
+/CRM-commons/target/
+/CRM-mapper/target/
+/CRM-pojo/target/
+/CRM-service/target/
+/CRM-web/target/

@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+
+<link href="../../jquery/bootstrap_3.3.0/css/bootstrap.min.css" type="text/css" rel="stylesheet" />
+<link href="../../jquery/bootstrap-datetimepicker-master/css/bootstrap-datetimepicker.min.css" type="text/css" rel="stylesheet" />
+
+<script type="text/javascript" src="../../jquery/jquery-1.11.1-min.js"></script>
+<script type="text/javascript" src="../../jquery/bootstrap_3.3.0/js/bootstrap.min.js"></script>
+<script type="text/javascript" src="../../jquery/bootstrap-datetimepicker-master/js/bootstrap-datetimepicker.js"></script>
+<script type="text/javascript" src="../../jquery/bootstrap-datetimepicker-master/locale/bootstrap-datetimepicker.zh-CN.js"></script>
+
+<script type="text/javascript">
+	//默认情况下取消和保存按钮是隐藏的
+	var cancelAndSaveBtnDefault = true;
+	var activityId=location.search.split("?")[1];
+	// const activityId=location.href.split("?")[1];
+	$(function(){
+		//导入bootstrap时间框插件
+		$(".time").datetimepicker({
+			minView: "month",
+			language:  'zh-CN',
+			format: 'yyyy-mm-dd',
+			autoclose: true,//选择时间自动关闭
+			todayBtn: true,//选择时间
+			pickerPosition: "bottom-left"//位置
+		});
+		$.ajaxSetup({
+			cache:false
+		});
+
+		$("#remark").focus(function(){
+			if(cancelAndSaveBtnDefault){
+				//设置remarkDiv的高度为130px
+				$("#remarkDiv").css("height","130px");
+				//显示
+				$("#cancelAndSaveBtn").show("2000");
+				cancelAndSaveBtnDefault = false;
+			}
+		});
+		
+		$("#cancelBtn").click(function(){
+			//显示
+			$("#cancelAndSaveBtn").hide();
+			//设置remarkDiv的高度为130px
+			$("#remarkDiv").css("height","90px");
+			cancelAndSaveBtnDefault = true;
+		});
+		
+		$(".myHref").mouseover(function(){
+			$(this).children("span").css("color","red");
+		});
+		
+		$(".myHref").mouseout(function(){
+			$(this).children("span").css("color","#E6E6E6");
+		});
+
+		$("#remarkBody").on("mouseover",".remarkDiv",function(){
+			$(this).children("div").children("div").show();
+		})
+		$("#remarkBody").on("mouseout",".remarkDiv",function(){
+			$(this).children("div").children("div").hide();
+		})
+
+		getActivityDetail();
+
+		getRemark();
+
+		$("#remark-addBtn").click(function () {
+			if ($("#remark").val()==""){
+				alert("请输入备注的内容！")
+				return;
+			}
+			addRemark();
+		});
+
+		$("#updateRemarkBtn").click(function () {
+			editSave();
+		})
+
+		//弹出修改市场活动的模态框，并显示选中记录的详细信息和可选择的owner
+		$("#editBtn-activity").click(function () {
+			$.ajax({
+				url:"/crm/activity/"+activityId,
+				type:"get",
+				dataType: "json",
+				success:function (result) {
+					if (result.code==1001){
+						var user=result.data.users;
+						var act=result.data.act;
+						var html="";
+						for (var i=0;i<user.length;i++){
+							if (user[i].id==act.owner){
+								html+="<option selected value='"+user[i].id+"'>"+user[i].name+"</option>"
+							}else {
+								html+="<option "+user[i].id+">"+user[i].name+"</option>"
+							}
+						}
+						$("#edit-activityOwner").html(html);
+						$("#edit-activityId").val(act.id);
+						$("#edit-activityName").val(act.name);
+						$("#edit-startdate").val(act.startdate);
+						$("#edit-enddate").val(act.enddate);
+						$("#edit-describe").val(act.description);
+						$("#edit-cost").val(act.cost);
+						$("#editActivityModal").modal("show");
+					}
+				}
+			});
+
+		});
+
+		//提交修改后的市场活动信息
+		$("#editSave").click(function () {
+			$.ajax({
+				url:"/crm/activity/edit",
+				type:"post",
+				data:{
+					id:$("#edit-activityId").val(),
+					owner:$("#edit-activityOwner option:selected").val(),
+					name:$("#edit-activityName").val(),
+					startdate:$("#edit-startdate").val(),
+					enddate:$("#edit-enddate").val(),
+					description:$("#edit-describe").val(),
+					cost:$("#edit-cost").val()
+				},
+				dataType: "json",
+				success:function (result) {
+					if (result.code==1001){
+						alert("修改成功")
+						$("#activity-editForm")[0].reset();
+						$("#editActivityModal").modal("hide");
+						getActivityDetail();
+						getRemark();
+					}else {
+						alert(result.message)
+					}
+				}
+			});
+		});
+		$("#delBtn-activity").click(function () {
+			if (confirm("本操作无法复原，请确认是否删除选中的记录？")){
+				$.ajax({
+					url:"/crm/activity/delete",
+					type:"post",
+					data:{ids:[activityId]},
+					dataType: "json",
+					success:function (result) {
+						if (result.code=1001){
+							alert("删除成功");
+							window.location.href="index.html";
+							// window.history.back();
+						}else {
+							alert(result.message)
+						}
+					}
+				});
+			}
+		})
+
+
+	});
+
+	function getActivityDetail() {
+		$.ajax({
+			url:"/crm/activity/"+activityId,
+			type:"get",
+			dataType:"json",
+			success:function (obj) {
+				var activity=obj.data.act;
+				var user=obj.data.users;
+				$("#show-name").html(activity.name);
+				$("#title").html(activity.name);
+				$("#show-cost").html(activity.cost);
+				$("#show-startdate").html(activity.startdate);
+				$("#title-startdate").html(activity.startdate);
+				$("#show-enddate").html(activity.enddate);
+				$("#title-enddate").html(activity.enddate);
+				$("#show-createby").html(activity.createby);
+				$("#show-createtime").html(activity.createtime);
+				$("#show-editby").html(activity.editby);
+				$("#show-edittime").html(activity.edittime);
+				$("#show-description").html(activity.description);
+				$.each(user,function () {
+					if ($(this)[0].id==activity.owner){
+						$("#show-owner").html($(this)[0].name);
+					}
+				})
+			}
+		});
+	}
+
+	function addRemark() {
+		$.ajax({
+			url:"/crm/actRemark/addItem",
+			data:{
+				notecontent:$("#remark").val(),
+				activityid:activityId
+			},
+			type:"post",
+			dataType:"json",
+			success:function (obj) {
+				if (obj.code=1001){
+					getRemark();
+					$("#remark").val("");
+					$("#cancelBtn").click();
+				}
+			}
+		})
+	}
+
+	function getRemark() {
+		$.ajax({
+			url:"/crm/actRemark/remarksByAct",
+			type:"post",
+			data:{
+				activityId:activityId
+			},
+			dataType:"json",
+			success:function (obj) {
+				var remarkList=obj.data;
+				var html="";
+				$.each(remarkList,function () {
+					html+="<div id='e"+this.id+"' class='remarkDiv' style=\"height: 60px;\">\n" +
+							"\t\t\t<img title='"+(this.editflag==0?this.createby:this.editby)+"' src=\"../../image/user-thumbnail.png\" style=\"width: 30px; height:30px;\">\n" +
+							"\t\t\t<div style=\"position: relative; top: -40px; left: 40px;\" >\n" +
+							"\t\t\t\t<h5>"+this.notecontent+"</h5>\n" +
+							"\t\t\t\t<font color=\"gray\">市场活动</font> <font color=\"gray\">-</font> <b>"+$("#title").text()+"</b> <small style=\"color: gray;\"> <span>"+(this.editflag==0?this.createtime:this.edittime)+"</span> 由<span>"+(this.editflag==0?this.createby:this.editby)+"</span></small>\n" +
+							"\t\t\t\t<div style=\"position: relative; left: 500px; top: -30px; height: 30px; width: 100px; display: none;\">\n" +
+							"\t\t\t\t\t<a class='myHref' href=\"javascript:void(0);\" onclick='toEdit(\""+this.id+"\",\""+this.notecontent+"\")'><span class='glyphicon glyphicon-edit' style='font-size: 20px; color:green;'></span></a>\n" +
+							"\t\t\t\t\t&nbsp;&nbsp;&nbsp;&nbsp;\n" +
+							"\t\t\t\t\t<a class=\"myHref\" href=\"javascript:void(0);\" onclick='del(\""+this.id+"\")'><span class=\"glyphicon glyphicon-remove\" style=\"font-size: 20px; color: red;\"></span></a>\n" +
+							"\t\t\t\t</div>\n" +
+							"\t\t\t</div>\n" +
+							"\t\t</div>"
+				});
+				$("#remarkBody").html(html);
+			}
+		});
+	}
+	//弹出更新备注的模态框
+	function toEdit(remarkId,notecontent) {
+		$("#remarkId").val(remarkId);
+		$("#noteContent").val(notecontent);
+		$("#editRemarkModal").modal("show");
+	}
+
+	function editSave() {
+		$.ajax({
+			url:"/crm/actRemark/editItem",
+			type:"post",
+			data:{
+				id:$("#remarkId").val(),
+				notecontent:$("#noteContent").val()
+			},
+			dataType:"",
+			success:function (obj) {
+				if (obj.code==1001){
+					$("#editRemarkModal").modal("hide");
+					getRemark();
+				}else {
+					alert(obj.message)
+				}
+			}
+		})
+	}
+
+	function del(remarkId){
+		$.ajax({
+			url:"/crm/actRemark/delItem",
+			type:"post",
+			data:{
+				id:remarkId,
+			},
+			dataType:"",
+			success:function (obj) {
+				if (obj.code==1001){
+					$("#e"+remarkId).remove();
+					$("#editRemarkModal").modal("hide");
+				}else {
+					alert(obj.message)
+				}
+			}
+		})
+	}
+
+	
+</script>
+
+</head>
+<body>
+	
+	<!-- 修改市场活动备注的模态窗口 -->
+	<div class="modal fade" id="editRemarkModal" role="dialog">
+		<!--备注的id-->
+		<input type="hidden" id="remarkId">
+        <div class="modal-dialog" role="document" style="width: 40%;">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <button type="button" class="close" data-dismiss="modal">
+                        <span aria-hidden="true">×</span>
+                    </button>
+                    <h4 class="modal-title" id="myModalLabel1">修改备注</h4>
+                </div>
+                <div class="modal-body">
+                    <form class="form-horizontal" role="form">
+                        <div class="form-group">
+                            <label for="edit-describe" class="col-sm-2 control-label">内容</label>
+                            <div class="col-sm-10" style="width: 81%;">
+                                <textarea class="form-control" rows="3" id="noteContent"></textarea>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-default" data-dismiss="modal">关闭</button>
+                    <button type="button" class="btn btn-primary" id="updateRemarkBtn">更新</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 修改市场活动的模态窗口 -->
+    <div class="modal fade" id="editActivityModal" role="dialog">
+        <div class="modal-dialog" role="document" style="width: 85%;">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <button type="button" class="close" data-dismiss="modal">
+                        <span aria-hidden="true">×</span>
+                    </button>
+                    <h4 class="modal-title" id="myModalLabel">修改市场活动</h4>
+                </div>
+                <div class="modal-body">
+
+                    <form class="form-horizontal" role="form" id="activity-editForm">
+						<!--市场活动的id-->
+						<input type="hidden" id="edit-activityId">
+                        <div class="form-group">
+                            <label for="edit-activityOwner" class="col-sm-2 control-label">所有者<span style="font-size: 15px; color: red;">*</span></label>
+                            <div class="col-sm-10" style="width: 300px;">
+                                <select class="form-control" id="edit-activityOwner">
+                                </select>
+                            </div>
+                            <label for="edit-activityName" class="col-sm-2 control-label">名称<span style="font-size: 15px; color: red;">*</span></label>
+                            <div class="col-sm-10" style="width: 300px;">
+                                <input type="text" class="form-control" id="edit-activityName">
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="edit-startdate" class="col-sm-2 control-label">开始日期</label>
+                            <div class="col-sm-10" style="width: 300px;">
+                                <input type="text" class="form-control time" id="edit-startdate">
+                            </div>
+                            <label for="edit-enddate" class="col-sm-2 control-label">结束日期</label>
+                            <div class="col-sm-10" style="width: 300px;">
+                                <input type="text" class="form-control time" id="edit-enddate">
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="edit-cost" class="col-sm-2 control-label">成本</label>
+                            <div class="col-sm-10" style="width: 300px;">
+                                <input type="text" class="form-control" id="edit-cost">
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="edit-describe" class="col-sm-2 control-label">描述</label>
+                            <div class="col-sm-10" style="width: 81%;">
+                                <textarea class="form-control" rows="3" id="edit-describe"></textarea>
+                            </div>
+                        </div>
+
+                    </form>
+
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-default" data-dismiss="modal">关闭</button>
+                    <button type="button" class="btn btn-primary" id="editSave">更新</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+	<!-- 返回按钮 -->
+	<div style="position: relative; top: 35px; left: 10px;">
+		<a href="javascript:void(0);" onclick="window.history.back();"><span class="glyphicon glyphicon-arrow-left" style="font-size: 20px; color: #DDDDDD"></span></a>
+	</div>
+	
+	<!-- 大标题 -->
+	<div style="position: relative; left: 40px; top: -30px;">
+		<div class="page-header">
+			<h3>市场活动-<span id="title"></span> <small><span id="title-startdate"></span> ~ <span id="title-enddate"></span></small></h3>
+		</div>
+		<div style="position: relative; height: 50px; width: 250px;  top: -72px; left: 700px;">
+			<button id="editBtn-activity" type="button" class="btn btn-default" data-toggle="modal" data-target="#editActivityModal"><span class="glyphicon glyphicon-edit"></span> 编辑</button>
+			<button id="delBtn-activity" type="button" class="btn btn-danger"><span class="glyphicon glyphicon-minus"></span> 删除</button>
+		</div>
+	</div>
+	
+	<!-- 详细信息 -->
+	<div style="position: relative; top: -70px;">
+		<div style="position: relative; left: 40px; height: 30px;">
+			<div style="width: 300px; color: gray;">所有者</div>
+			<div style="width: 300px;position: relative; left: 200px; top: -20px;" ><b><span id="show-owner"></span></b></div>
+			<div style="width: 300px;position: relative; left: 450px; top: -40px; color: gray;">名称</div>
+			<div style="width: 300px;position: relative; left: 650px; top: -60px;"><b><span id="show-name"></span></b></div>
+			<div style="height: 1px; width: 400px; background: #D5D5D5; position: relative; top: -60px;"></div>
+			<div style="height: 1px; width: 400px; background: #D5D5D5; position: relative; top: -60px; left: 450px;"></div>
+		</div>
+
+		<div style="position: relative; left: 40px; height: 30px; top: 10px;">
+			<div style="width: 300px; color: gray;" >开始日期</div>
+			<div style="width: 300px;position: relative; left: 200px; top: -20px;"><b><span id="show-startdate"></span></b></div>
+			<div style="width: 300px;position: relative; left: 450px; top: -40px; color: gray;">结束日期</div>
+			<div style="width: 300px;position: relative; left: 650px; top: -60px;"><b><span id="show-enddate"></span></b></div>
+			<div style="height: 1px; width: 400px; background: #D5D5D5; position: relative; top: -60px;"></div>
+			<div style="height: 1px; width: 400px; background: #D5D5D5; position: relative; top: -60px; left: 450px;"></div>
+		</div>
+		<div style="position: relative; left: 40px; height: 30px; top: 20px;">
+			<div style="width: 300px; color: gray;">成本</div>
+			<div style="width: 300px;position: relative; left: 200px; top: -20px;" ><b><span id="show-cost"></span></b></div>
+			<div style="height: 1px; width: 400px; background: #D5D5D5; position: relative; top: -20px;"></div>
+		</div>
+		<div style="position: relative; left: 40px; height: 30px; top: 30px;">
+			<div style="width: 300px; color: gray;">创建者</div>
+			<div style="width: 500px;position: relative; left: 200px; top: -20px;" ><b><span id="show-createby"></span>&nbsp;&nbsp;</b><small style="font-size: 10px; color: gray;" id="show-createtime"></small></div>
+			<div style="height: 1px; width: 550px; background: #D5D5D5; position: relative; top: -20px;"></div>
+		</div>
+		<div style="position: relative; left: 40px; height: 30px; top: 40px;">
+			<div style="width: 300px; color: gray;">修改者</div>
+			<div style="width: 500px;position: relative; left: 200px; top: -20px;" ><b ><span id="show-editby"></span>&nbsp;&nbsp;</b><small style="font-size: 10px; color: gray;" id="show-edittime"></small></div>
+			<div style="height: 1px; width: 550px; background: #D5D5D5; position: relative; top: -20px;"></div>
+		</div>
+		<div style="position: relative; left: 40px; height: 30px; top: 50px;">
+			<div style="width: 300px; color: gray;" >描述</div>
+			<div style="width: 630px;position: relative; left: 200px; top: -20px;" >
+				<b><span id="show-description"></span></b>
+			</div>
+			<div style="height: 1px; width: 850px; background: #D5D5D5; position: relative; top: -20px;"></div>
+		</div>
+	</div>
+	
+	<!-- 备注 -->
+	<div style="position: relative; top: 30px; left: 40px;">
+		<div class="page-header">
+			<h4>备注</h4>
+		</div>
+
+		<div id="remarkBody">
+
+		</div>
+
+		<div id="remarkDiv" style="background-color: #E6E6E6; width: 870px; height: 90px;">
+			<form role="form" style="position: relative;top: 10px; left: 10px;">
+				<textarea id="remark" class="form-control" style="width: 850px; resize : none;" rows="2"  placeholder="添加备注..."></textarea>
+				<p id="cancelAndSaveBtn" style="position: relative;left: 737px; top: 10px; display: none;">
+					<button id="cancelBtn" type="button" class="btn btn-default">取消</button>
+					<button type="button" class="btn btn-primary" id="remark-addBtn">保存</button>
+				</p>
+			</form>
+		</div>
+	</div>
+	<div style="height: 200px;"></div>
+</body>
+</html>

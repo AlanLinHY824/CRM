@@ -1,0 +1,517 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+
+<link href="../../jquery/bootstrap_3.3.0/css/bootstrap.min.css" type="text/css" rel="stylesheet" />
+<link href="../../jquery/bootstrap-datetimepicker-master/css/bootstrap-datetimepicker.min.css" type="text/css" rel="stylesheet" />
+
+<script type="text/javascript" src="../../jquery/jquery-1.11.1-min.js"></script>
+<script type="text/javascript" src="../../jquery/bootstrap_3.3.0/js/bootstrap.min.js"></script>
+<script type="text/javascript" src="../../jquery/bootstrap-datetimepicker-master/js/bootstrap-datetimepicker.js"></script>
+<script type="text/javascript" src="../../jquery/bootstrap-datetimepicker-master/locale/bootstrap-datetimepicker.zh-CN.js"></script>
+<link href="../../jquery/bs_pagination/jquery.bs_pagination.min.css" type="text/css" rel="stylesheet" />
+<script type="text/javascript" src="../../jquery/bs_pagination/en.js"></script>
+<script type="text/javascript" src="../../jquery/bs_pagination/jquery.bs_pagination.min.js"></script>
+<script type="text/javascript" src="../../jquery/bs_typeahead/bootstrap3-typeahead.min.js"></script>
+
+</head>
+<script>
+	var customerId=location.href.substr(location.href.lastIndexOf("=")+1);
+
+	$(function () {
+		//导入bootstrap时间框插件
+		$(".time").datetimepicker({
+			minView: "month",
+			language:  'zh-CN',
+			format: 'yyyy-mm-dd',
+			autoclose: true,//选择时间自动关闭
+			todayBtn: true,//选择时间
+			pickerPosition: "bottom-left"//位置
+		});
+
+		$(".time-top").datetimepicker({
+			minView: "month",
+			language:  'zh-CN',
+			format: 'yyyy-mm-dd',
+			autoclose: true,//选择时间自动关闭
+			todayBtn: true,//选择时间
+			pickerPosition: "top-left"//位置
+		});
+		$.ajaxSetup({
+			cache:false
+		});
+
+		$("#closeWarning").click(function () {
+			$("#editWarning").removeClass("in").addClass("hide");
+		});
+
+		getdata();
+		getcustomer();
+		getposs();
+
+		$("#showContactsBtn").click(function () {
+			var customer=$("#create-accountName").val()
+			var search=$("#hidden-search-contacts").val()
+			getContacts(1,5);
+			$("#findContacts").modal("show")
+		})
+		$("#search-contacts").blur(function () {
+			$("#hidden-search-contacts").val($("#search-contacts").val());
+			getContacts($("#contactsPage").bs_pagination('getOption', 'currentPage'),$("#contactsPage").bs_pagination('getOption', 'rowsPerPage'));
+		})
+
+		$("#confirmContactBtn").click(function () {
+			var act=$("input[name='contacts']:checked").val();
+			$("#create-contact").val($("#"+act).text());
+			$("#create-contactId").val(act);
+			$("#hidden-search-contacts").val("");
+			$("#findContacts").modal("hide");
+		})
+
+
+		$("#activity-search").blur(function () {
+			$("#hidden-activity-search").val($("#activity-search").val());
+			getActivity($("#activityPage").bs_pagination('getOption', 'currentPage'),$("#activityPage").bs_pagination('getOption', 'rowsPerPage'));
+		})
+
+		$("#showActivitiesBtn").click(function () {
+			getActivity(1,5);
+			$("#findMarketActivity").modal("show")
+		})
+
+		$("#confirmActBtn").click(function () {
+			var act=$("input[name='activity']:checked").val();
+			$("#create-activity").val($("#"+act).text());
+			$("#tran-actId").val(act);
+			$("#hidden-activity-search").val("");
+			$("#findMarketActivity").modal("hide");
+		})
+
+		$("#createTranCancel").click(function () {
+			location.href="index.html"
+		})
+
+		$("#createTranSave").click(function () {
+			createTran();
+		})
+
+
+	});
+
+	function getdata() {
+		// if (location.href.lastIndexOf("=")!=-1){
+		// 	var customerid=customerId;
+		// }else {
+		// 	var customerid=""
+		// }
+		$.ajax({
+			url:"/crm/tran/users",
+			type:"post",
+			dataType:"json",
+			success:function (obj) {
+				if (obj.code==1001){
+					var stage=obj.data.stage;
+					var source=obj.data.source;
+					var transactionType=obj.data.transactionType;
+					var user=obj.data.users;
+
+					var stagehtml="<option value='' >请选择</option>>";
+					$.each(stage,function () {
+						stagehtml+="<option value='"+this.value+"'>"+this.text+"</option>"
+					});
+					$("#create-transactionStage").html(stagehtml);
+
+					var sourcehtml="<option value='' >请选择</option>>";
+					$.each(source,function () {
+						sourcehtml+="<option value='"+this.value+"'>"+this.text+"</option>"
+					});
+					$("#create-tranSource").html(sourcehtml);
+
+					var transactionTypehtml="<option value='' >请选择</option>>";
+					$.each(transactionType,function () {
+						transactionTypehtml+="<option value='"+this.value+"'>"+this.text+"</option>"
+					});
+					$("#create-transactionType").html(transactionTypehtml);
+
+					var userhtml="<option value='' >请选择</option>>"
+					if (user.length==1){
+						userhtml+="<option selected value='"+user[0].id+"'>"+user[0].name+"</option>"
+					}else {
+						for (var i=0;i<user.length;i++){
+							userhtml+="<option value='"+user[i].id+"'>"+user[i].name+"</option>"
+						}
+					}
+					$("#create-transactionOwner").html(userhtml);
+				}
+			}
+		});
+	}
+
+	function getcustomer() {
+		if (location.href.lastIndexOf("=")!=-1){
+			var customerid=customerId;
+			$("#create-accountName").attr('disabled','disabled')
+			$.ajax({
+				url:"/crm/tran/customers",
+				type:"post",
+				data:{customerId:customerid},
+				dataType:"json",
+				success:function (obj) {
+					if (obj.code==1001){
+						$("#create-accountName").val(obj.data[0].name)
+					}
+				}
+			});
+		}else {
+			$("#create-accountName").typeahead({
+				source: function (query, process) {
+					$.get("/crm/tran/customers",{"name":query},function (obj) {
+								process(obj.data)
+							},"json"
+					)
+				},
+				delay:500
+			});
+		}
+	}
+
+	function getposs() {
+		$.ajax({
+			url:"/crm/tran/getposs",
+			type:"get",
+			dataType:"json",
+			success:function (obj) {
+				if (obj.code==1001){
+					items=obj.data;
+					$("#create-transactionStage").change(function () {
+						for (var key in items){
+							if ($("#create-transactionStage").val()==key){
+								$("#create-possibility").val(items[key]+"%")
+							}
+						}
+					})
+				}
+			}
+		});
+
+	}
+
+	function getContacts(pageNo,pageSize) {
+		$.ajax({
+			url:"/crm/tran/getContacts",
+			type:"post",
+			data:{customerName:$("#create-accountName").val(),search:$("#hidden-search-contacts").val(),pageNo:pageNo, pageSize:pageSize},
+			dataType:"json",
+			success:function (obj) {
+				if (obj.code==1001){
+					var list=obj.data.rows
+					var html=""
+					$.each(list,function () {
+						html+="<tr>\n" +
+								"\t\t\t\t\t\t\t\t<td><input type=\"radio\" name=\"contacts\" value='"+this.id+"' /></td>\n" +
+								"\t\t\t\t\t\t\t\t<td id='"+this.id+"'>"+this.fullname+"</td>\n" +
+								"\t\t\t\t\t\t\t\t<td>"+this.email+"</td>\n" +
+								"\t\t\t\t\t\t\t\t<td>"+this.mphone+"</td>\n" +
+								"\t\t\t\t\t\t\t</tr>"
+					})
+					$("#contactsList").html(html);
+
+					$("#contactsPage").bs_pagination({
+						currentPage: pageNo, // 页码
+						rowsPerPage: pageSize, // 每页显示的记录条数
+						maxRowsPerPage: 20, // 每页最多显示的记录条数
+						totalPages: obj.data.pages, // 总页数
+						totalRows: obj.data.total, // 总记录条数
+						visiblePageLinks: 3, // 显示几个卡片
+						showGoToPage: true,
+						showRowsPerPage: true,
+						showRowsInfo: true,
+						showRowsDefaultInfo: true,
+						onChangePage : function(event, object){
+							getContacts($("#contactsPage").bs_pagination('getOption', 'currentPage'),$("#contactsPage").bs_pagination('getOption', 'rowsPerPage'));
+						}
+					});
+				}
+			}
+		});
+
+	}
+
+	function getActivity(pageNo,pageSize) {
+		var search=$("#hidden-activity-search").val()
+		$.ajax({
+			url:"/crm/tran/getActivities",
+			type:"post",
+			data:{
+				pageNo:pageNo,
+				pageSize:pageSize,
+				search:search
+			},
+			dataType:"json",
+			success:function (obj) {
+				if (obj.code==1001){
+					var list=obj.data.rows
+					var html=""
+					$.each(list,function () {
+						html+="<tr>\n" +
+								"\t\t\t\t\t\t\t\t<td><input type=\"radio\" name=\"activity\" value='"+this.id+"' /></td>\n" +
+								"\t\t\t\t\t\t\t\t<td id='"+this.id+"'>"+this.name+"</td>\n" +
+								"\t\t\t\t\t\t\t\t<td>"+this.startdate+"</td>\n" +
+								"\t\t\t\t\t\t\t\t<td>"+this.enddate+"</td>\n" +
+								"\t\t\t\t\t\t\t\t<td>"+this.owner+"</td>\n" +
+								"\t\t\t\t\t\t\t</tr>"
+					});
+					$("#activityList").html(html);
+					$("#activityPage").bs_pagination({
+						currentPage: pageNo, // 页码
+						rowsPerPage: pageSize, // 每页显示的记录条数
+						maxRowsPerPage: 20, // 每页最多显示的记录条数
+						totalPages: obj.data.pages, // 总页数
+						totalRows: obj.data.total, // 总记录条数
+						visiblePageLinks: 3, // 显示几个卡片
+						showGoToPage: true,
+						showRowsPerPage: true,
+						showRowsInfo: true,
+						showRowsDefaultInfo: true,
+						onChangePage : function(event, object){
+							getActivity($("#activityPage").bs_pagination('getOption', 'currentPage'),$("#activityPage").bs_pagination('getOption', 'rowsPerPage'));
+						}
+					});
+				}
+			}
+		})
+	}
+
+	function createTran() {
+		$.ajax({
+			url:"/crm/tran/createTran",
+			type:"post",
+			data:{
+				owner:$("#create-transactionOwner option:selected").val(),
+				money:$("#create-money").val(),
+				name:$("#create-tranName").val(),
+				expecteddate:$("#create-expecteddate").val(),
+				customerid:$("#create-accountName").val(),
+				stage:$("#create-transactionStage option:selected").val(),
+				type:$("#create-transactionType option:selected").val(),
+				source:$("#create-tranSource option:selected").val(),
+				activityid:$("#tran-actId").val(),
+				contactsid:$("#create-contactId").val(),
+				description:$("#create-describe").val(),
+				contactsummary:$("#create-contactsummary").val(),
+				nextcontacttime:$("#create-nextcontacttime").val()
+			},
+			dataType:"json",
+			success:function (obj) {
+				console.log(obj)
+				if (obj.code==1001){
+					window.history.back();
+				}
+			}
+		});
+
+	}
+
+</script>
+<body>
+
+	<!-- 查找市场活动 -->	
+	<div class="modal fade" id="findMarketActivity" role="dialog">
+		<div class="modal-dialog" role="document" style="width: 80%;">
+			<div class="modal-content">
+				<div class="modal-header">
+					<button type="button" class="close" data-dismiss="modal">
+						<span aria-hidden="true">×</span>
+					</button>
+					<h4 class="modal-title">查找市场活动</h4>
+				</div>
+				<div class="modal-body">
+					<div class="btn-group" style="position: relative; top: 18%; left: 8px;">
+						<form class="form-inline" role="form">
+						  <div class="form-group has-feedback">
+							  <input type="hidden" id="hidden-activity-search" />
+						    <input type="text" class="form-control" style="width: 300px;" placeholder="请输入市场活动名称，支持模糊查询"id="activity-search">
+						    <span class="glyphicon glyphicon-search form-control-feedback"></span>
+						  </div>
+						</form>
+					</div>
+					<table id="activityTable3" class="table table-hover" style="width: 900px; position: relative;top: 10px;">
+						<thead>
+							<tr style="color: #B3B3B3;">
+								<td></td>
+								<td>名称</td>
+								<td>开始日期</td>
+								<td>结束日期</td>
+								<td>所有者</td>
+							</tr>
+						</thead>
+						<tbody id="activityList">
+
+
+						</tbody>
+					</table>
+				</div>
+				<div id="activityPage" >
+
+				</div>
+				<div class="modal-footer">
+					<button type="button" class="btn btn-default" data-dismiss="modal">取消</button>
+					<button type="button" class="btn btn-primary" id="confirmActBtn">确定</button>
+				</div>
+			</div>
+		</div>
+	</div>
+
+	<!-- 查找联系人 -->	
+	<div class="modal fade" id="findContacts" role="dialog">
+		<div class="modal-dialog" role="document" style="width: 80%;">
+			<div class="modal-content">
+				<div class="modal-header">
+					<button type="button" class="close" data-dismiss="modal">
+						<span aria-hidden="true">×</span>
+					</button>
+					<h4 class="modal-title">查找联系人</h4>
+				</div>
+				<div class="modal-body">
+					<div class="btn-group" style="position: relative; top: 18%; left: 8px;">
+						<form class="form-inline" role="form">
+						  <div class="form-group has-feedback">
+							  <input type="hidden" id="hidden-search-contacts" />
+						    <input type="text" class="form-control" style="width: 300px;" placeholder="请输入联系人名称，支持模糊查询" id="search-contacts">
+						    <span class="glyphicon glyphicon-search form-control-feedback"></span>
+						  </div>
+						</form>
+					</div>
+					<table id="activityTable" class="table table-hover" style="width: 900px; position: relative;top: 10px;">
+						<thead>
+							<tr style="color: #B3B3B3;">
+								<td></td>
+								<td>名称</td>
+								<td>邮箱</td>
+								<td>手机</td>
+							</tr>
+						</thead>
+						<tbody id="contactsList">
+
+						</tbody>
+					</table>
+				</div>
+				<div id="contactsPage" >
+
+				</div>
+				<div class="modal-footer">
+					<button type="button" class="btn btn-default" data-dismiss="modal">取消</button>
+					<button type="button" class="btn btn-primary" id="confirmContactBtn">确定</button>
+				</div>
+			</div>
+		</div>
+	</div>
+	<div class="alert alert-warning alert-dismissable hide" id="editWarning" >
+		<strong id="warningText" style="color: red"></strong>
+		<button type="button" class="close" aria-label="Close" id="closeWarning">
+			<span aria-hidden="true">&times;</span>
+		</button>
+	</div>
+	
+	<div style="position:  relative; left: 30px;">
+		<h3>创建交易</h3>
+	  	<div style="position: relative; top: -40px; left: 70%;">
+			<button type="button" class="btn btn-primary" id="createTranSave">保存</button>
+			<button type="button" class="btn btn-default" id="createTranCancel">取消</button>
+		</div>
+		<hr style="position: relative; top: -40px;">
+	</div>
+	<form class="form-horizontal" role="form" style="position: relative; top: -30px;">
+		<div class="form-group">
+			<label for="create-transactionOwner" class="col-sm-2 control-label">所有者<span style="font-size: 15px; color: red;">*</span></label>
+			<div class="col-sm-10" style="width: 300px;">
+				<select class="form-control" id="create-transactionOwner">
+				</select>
+			</div>
+			<label for="create-money" class="col-sm-2 control-label">金额</label>
+			<div class="col-sm-10" style="width: 300px;">
+				<input type="text" class="form-control" id="create-money">
+			</div>
+		</div>
+		
+		<div class="form-group">
+			<label for="create-tranName" class="col-sm-2 control-label">名称<span style="font-size: 15px; color: red;">*</span></label>
+			<div class="col-sm-10" style="width: 300px;">
+				<input type="text" class="form-control" id="create-tranName">
+			</div>
+			<label for="create-expecteddate" class="col-sm-2 control-label">预计成交日期<span style="font-size: 15px; color: red;">*</span></label>
+			<div class="col-sm-10" style="width: 300px;">
+				<input type="text" class="form-control time" id="create-expecteddate">
+			</div>
+		</div>
+		
+		<div class="form-group">
+			<label for="create-accountName" class="col-sm-2 control-label">客户名称<span style="font-size: 15px; color: red;">*</span></label>
+			<div class="col-sm-10" style="width: 300px;">
+				<input type="text" class="form-control" id="create-accountName" placeholder="支持自动补全，输入客户不存在则新建" autocomplete="off">
+			</div>
+			<label for="create-transactionStage" class="col-sm-2 control-label">阶段<span style="font-size: 15px; color: red;">*</span></label>
+			<div class="col-sm-10" style="width: 300px;">
+			  <select class="form-control" id="create-transactionStage">
+			  </select>
+			</div>
+		</div>
+		
+		<div class="form-group">
+			<label for="create-transactionType" class="col-sm-2 control-label">类型</label>
+			<div class="col-sm-10" style="width: 300px;">
+				<select class="form-control" id="create-transactionType">
+				</select>
+			</div>
+			<label for="create-possibility" class="col-sm-2 control-label">可能性</label>
+			<div class="col-sm-10" style="width: 300px;">
+				<input type="text" class="form-control" id="create-possibility">
+			</div>
+		</div>
+		
+		<div class="form-group">
+			<label for="create-tranSource" class="col-sm-2 control-label">来源</label>
+			<div class="col-sm-10" style="width: 300px;">
+				<select class="form-control" id="create-tranSource">
+				</select>
+			</div>
+			<label for="create-activity" class="col-sm-2 control-label">市场活动源&nbsp;&nbsp;<a href="javascript:void(0);" data-toggle="modal" id="showActivitiesBtn"><span class="glyphicon glyphicon-search"></span></a></label>
+			<div class="col-sm-10" style="width: 300px;">
+				<input type="hidden" id="tran-actId" />
+				<input type="text" class="form-control" id="create-activity">
+			</div>
+		</div>
+		
+		<div class="form-group">
+			<label for="create-contact" class="col-sm-2 control-label">联系人名称&nbsp;&nbsp;<a href="javascript:void(0);" data-toggle="modal" id="showContactsBtn"><span class="glyphicon glyphicon-search"></span></a></label>
+			<div class="col-sm-10" style="width: 300px;">
+				<input type="hidden" id="create-contactId" />
+				<input type="text" class="form-control" id="create-contact">
+			</div>
+		</div>
+		
+		<div class="form-group">
+			<label for="create-describe" class="col-sm-2 control-label">描述</label>
+			<div class="col-sm-10" style="width: 70%;">
+				<textarea class="form-control" rows="3" id="create-describe"></textarea>
+			</div>
+		</div>
+		
+		<div class="form-group">
+			<label for="create-contactsummary" class="col-sm-2 control-label">联系纪要</label>
+			<div class="col-sm-10" style="width: 70%;">
+				<textarea class="form-control" rows="3" id="create-contactsummary"></textarea>
+			</div>
+		</div>
+		
+		<div class="form-group">
+			<label for="create-nextcontacttime" class="col-sm-2 control-label">下次联系时间</label>
+			<div class="col-sm-10" style="width: 300px;">
+				<input type="text" class="form-control time-top" id="create-nextcontacttime">
+			</div>
+		</div>
+		
+	</form>
+</body>
+</html>

@@ -1,0 +1,296 @@
+﻿<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+
+<link href="../../jquery/bootstrap_3.3.0/css/bootstrap.min.css" type="text/css" rel="stylesheet" />
+<link href="../../jquery/bootstrap-datetimepicker-master/css/bootstrap-datetimepicker.min.css" type="text/css" rel="stylesheet" />
+
+<script type="text/javascript" src="../../jquery/jquery-1.11.1-min.js"></script>
+<script type="text/javascript" src="../../jquery/bootstrap_3.3.0/js/bootstrap.min.js"></script>
+<script type="text/javascript" src="../../jquery/bootstrap-datetimepicker-master/js/bootstrap-datetimepicker.js"></script>
+<script type="text/javascript" src="../../jquery/bootstrap-datetimepicker-master/locale/bootstrap-datetimepicker.zh-CN.js"></script>
+<link href="../../jquery/bs_pagination/jquery.bs_pagination.min.css" type="text/css" rel="stylesheet" />
+<script type="text/javascript" src="../../jquery/bs_pagination/en.js"></script>
+<script type="text/javascript" src="../../jquery/bs_pagination/jquery.bs_pagination.min.js"></script>
+
+<script type="text/javascript">
+	var clueId=decodeURI(location.search.substring(location.search.indexOf("=")+1));
+	$(function(){
+
+		$(".time").datetimepicker({
+			minView: "month",
+			language:  'zh-CN',
+			format: 'yyyy-mm-dd',
+			autoclose: true,//选择时间自动关闭
+			todayBtn: true,//选择时间
+			pickerPosition: "top-left"//位置
+		});
+
+		$("#isCreateTransaction").click(function(){
+			if(this.checked){
+				$("#create-transaction2").show(200);
+				getStage();
+			}else{
+				$("#create-transaction2").hide(200);
+				$("#activity").val("");
+				$("#tran-actId").val("");
+				$("#stage").empty();
+			}
+		});
+
+		getDetail();
+
+
+		$("#searchAct").click(function () {
+			getRelation(1,3);
+			$("#searchActivityModal").modal("show")
+		})
+
+		$("#search").blur(function () {
+			$("#hidden-search").val($("#search").val());
+			getRelation(1,3);
+		})
+
+		$("#comfirmTranBtn").click(function () {
+			var act=$("input[name='activity']:checked").val();
+			$("#activity").val($("#"+act).text());
+			$("#tran-actId").val(act);
+			$("#hidden-search").val("");
+			$("#searchActivityModal").modal("hide");
+		})
+
+		$("#transferBtn").click(function () {
+			transferClue();
+		})
+		$("#cancelBtn").click(function () {
+			window.history.back();
+		})
+
+	});
+	
+
+
+	function getDetail() {
+		$.ajax({
+			url:"/crm/clue/detail",
+			type:"post",
+			data:{clueId:clueId},
+			dataType:"json",
+			success:function (obj) {
+				if(obj.code==1001){
+					var clue=obj.data;
+					$("#create-fullname").text(clue.fullname+clue.appellation);
+					$("#title-fullname").text(clue.fullname+clue.appellation);
+					$("#create-company").text(clue.company);
+					$("#title-company").text(clue.company);
+					$("#create-owner").text(clue.owner);
+				}
+			}
+		})
+	}
+
+	function getStage() {
+		$.ajax({
+			url:"/crm/clue/stage",
+			type:"get",
+			dataType:"json",
+			success:function (obj) {
+				if(obj.code==1001){
+					var stages=obj.data;
+					var html=""
+					$.each(stages,function () {
+						html+="<option value='"+this.value+"'>"+this.text+"</option>"
+					})
+					$("#stage").html(html)
+				}
+			}
+		})
+	}
+
+	function getRelation(pageNo,pageSize) {
+		var search=$("#hidden-search").val();
+		$.ajax({
+			url:"/crm/clue/getRelation",
+			type:"post",
+			data:{
+				clueId:clueId,
+				pageNo:pageNo,
+				pageSize:pageSize,
+				search:search
+			},
+			dataType:"json",
+			success:function (obj) {
+				if (obj.code==1001){
+					var list=obj.data.rows
+					var html=""
+					$.each(list,function () {
+						html+="<tr>\n" +
+								"\t\t\t\t\t\t\t\t<td><input type=\"radio\" name=\"activity\"/ value='"+this.id+"'></td>\n" +
+								"\t\t\t\t\t\t\t\t<td id='"+this.id+"'>"+this.name+"</td>\n" +
+								"\t\t\t\t\t\t\t\t<td>"+this.startdate+"</td>\n" +
+								"\t\t\t\t\t\t\t\t<td>"+this.enddate+"</td>\n" +
+								"\t\t\t\t\t\t\t\t<td>"+this.owner+"</td>\n" +
+								"\t\t\t\t\t\t\t</tr>"
+					})
+					$("#activityList").html(html);
+
+					$("#activityPage").bs_pagination({
+						currentPage: pageNo, // 页码
+						rowsPerPage: pageSize, // 每页显示的记录条数
+						maxRowsPerPage: 20, // 每页最多显示的记录条数
+						totalPages: obj.data.pages, // 总页数
+						totalRows: obj.data.total, // 总记录条数
+						visiblePageLinks: 3, // 显示几个卡片
+						showGoToPage: true,
+						showRowsPerPage: true,
+						showRowsInfo: true,
+						showRowsDefaultInfo: true,
+						onChangePage : function(event, object){
+							getRelation($("#activityPage").bs_pagination('getOption', 'currentPage'),$("#activityPage").bs_pagination('getOption', 'rowsPerPage'));
+						}
+					});
+				}
+			}
+		})
+	}
+
+	function transferClue() {
+		var isTran=$("#isCreateTransaction").prop("checked");
+		var data;
+		if (isTran){
+			data={
+				clueId:clueId,
+				money:$("#tran-money").val(),
+				name:$("#tran-name").val(),
+				expecteddate:$("#tran-expecteddate").val(),
+				stage:$("#stage").val(),
+				activityid:$("#tran-actId").val(),
+				flag:1
+			}
+		}else {
+			data={
+				clueId:clueId,
+			}
+		}
+		$.ajax({
+			url:"/crm/clue/transferClue",
+			type:"post",
+			data:data,
+			dataType:"json",
+			success:function (obj) {
+				if (obj.code==1001){
+					location.href="index.html"
+				}else {
+					alert(obj.message)
+				}
+
+			}
+		})
+
+	}
+
+</script>
+
+</head>
+<body>
+	
+	<!-- 搜索市场活动的模态窗口 -->
+	<div class="modal fade" id="searchActivityModal" role="dialog" >
+		<div class="modal-dialog" role="document" style="width: 90%;">
+			<div class="modal-content">
+				<div class="modal-header">
+					<button type="button" class="close" data-dismiss="modal">
+						<span aria-hidden="true">×</span>
+					</button>
+					<h4 class="modal-title">搜索市场活动</h4>
+				</div>
+				<div class="modal-body">
+					<div class="btn-group" style="position: relative; top: 18%; left: 8px;">
+						<form class="form-inline" role="form">
+						  <div class="form-group has-feedback">
+						    <input type="text" class="form-control" style="width: 300px;" placeholder="请输入市场活动名称，支持模糊查询" id="search">
+							  <input type="hidden" id="hidden-search">
+						    <span class="glyphicon glyphicon-search form-control-feedback"></span>
+						  </div>
+						</form>
+					</div>
+					<table id="activityTable" class="table table-hover" style="width: 900px; position: relative;top: 10px;">
+						<thead>
+							<tr style="color: #B3B3B3;">
+								<td></td>
+								<td>名称</td>
+								<td>开始日期</td>
+								<td>结束日期</td>
+								<td>所有者</td>
+								<td></td>
+							</tr>
+						</thead>
+						<tbody id="activityList">
+						</tbody>
+					</table>
+				</div>
+				<div id="activityPage" >
+
+				</div>
+				<div class="modal-footer">
+					<button type="button" class="btn btn-default" data-dismiss="modal">取消</button>
+					<button type="button" class="btn btn-primary" id="comfirmTranBtn">确定</button>
+				</div>
+			</div>
+		</div>
+	</div>
+
+	<div id="title" class="page-header" style="position: relative; left: 20px;">
+		<h4>转换线索 <small><span id="title-fullname"></span>-<span id="title-company"></span></small></h4>
+	</div>
+	<div id="create-customer" style="position: relative; left: 40px; height: 35px;">
+		新建客户：<span id="create-company"></span>
+	</div>
+	<div id="create-contact" style="position: relative; left: 40px; height: 35px;">
+		新建联系人：<span id="create-fullname"></span>
+	</div>
+	<div id="create-transaction1" style="position: relative; left: 40px; height: 35px; top: 25px;">
+		<input type="checkbox" id="isCreateTransaction"/>
+		为客户创建交易
+	</div>
+	<div id="create-transaction2" style="position: relative; left: 40px; top: 20px; width: 80%; background-color: #F7F7F7; display: none;" >
+	
+		<form>
+		  <div class="form-group" style="width: 400px; position: relative; left: 20px;">
+		    <label for="tran-money">金额</label>
+		    <input type="text" class="form-control" id="tran-money">
+		  </div>
+		  <div class="form-group" style="width: 400px;position: relative; left: 20px;">
+		    <label for="tran-name">交易名称</label>
+		    <input type="text" class="form-control" id="tran-name" value="动力节点-">
+		  </div>
+		  <div class="form-group" style="width: 400px;position: relative; left: 20px;">
+		    <label for="tran-expecteddate">预计成交日期</label>
+		    <input type="text" class="form-control time" id="tran-expecteddate">
+		  </div>
+		  <div class="form-group" style="width: 400px;position: relative; left: 20px;">
+		    <label for="stage">阶段</label>
+		    <select id="stage"  class="form-control">
+		    </select>
+		  </div>
+		  <div class="form-group" style="width: 400px;position: relative; left: 20px;">
+		    <label for="activity">市场活动源&nbsp;&nbsp;<a href="javascript:void(0);" data-toggle="modal" id="searchAct" style="text-decoration: none;"><span class="glyphicon glyphicon-search"></span></a></label>
+		    <input type="text" class="form-control" id="activity" placeholder="点击上面搜索" readonly>
+			  <input id="tran-actId" type="hidden">
+		  </div>
+		</form>
+		
+	</div>
+	
+	<div id="owner" style="position: relative; left: 40px; height: 35px; top: 50px;">
+		记录的所有者：<br>
+		<b><span id="create-owner"></span></b>
+	</div>
+	<div id="operation" style="position: relative; left: 40px; height: 35px; top: 100px;">
+		<input class="btn btn-primary" type="button" value="转换" id="transferBtn">
+		&nbsp;&nbsp;&nbsp;&nbsp;
+		<input class="btn btn-default" type="button" value="取消" id="cancelBtn">
+	</div>
+</body>
+</html>

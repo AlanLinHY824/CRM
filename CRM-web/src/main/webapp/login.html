@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<link href="/crm/jquery/bootstrap_3.3.0/css/bootstrap.min.css" type="text/css" rel="stylesheet" />
+<script type="text/javascript" src="/crm/jquery/jquery-1.11.1-min.js"></script>
+<script type="text/javascript" src="/crm/jquery/bootstrap_3.3.0/js/bootstrap.min.js"></script>
+</head>
+<body>
+	<div style="position: absolute; top: 0px; left: 0px; width: 60%;">
+		<img src="/crm/image/IMG_7114.JPG" style="width: 100%; position: relative; top: 50px;">
+	</div>
+	<div id="top" style="height: 50px; background-color: #3C3C3C; width: 100%;">
+		<div style="position: absolute; top: 5px; left: 0px; font-size: 30px; font-weight: 400; color: white; font-family: 'times new roman'">CRM &nbsp;<span style="font-size: 12px;">&copy;2020&nbsp;动力节点</span></div>
+	</div>
+	
+	<div style="position: absolute; top: 120px; right: 100px;width:450px;height:460px;border:1px solid #D5D5D5">
+		<div style="position: absolute; top: 0px; right: 60px;">
+			<div class="page-header">
+				<h1>登录</h1>
+			</div>
+			<form action="workbench/index.html" class="form-horizontal" role="form">
+				<div class="form-group form-group-lg">
+					<div style="width: 350px;">
+						<input id="loginact" class="form-control" type="text" placeholder="用户名">
+					</div>
+					<div style="width: 350px; position: relative;top: 20px;">
+						<input id="loginpwd" class="form-control" type="password" placeholder="密码">
+					</div>
+					<br/>
+					<div style="width: 145px; height: 35px; position: relative;top: 10px;display: inline-block">
+						<input id="phone" class="form-control" type="text" style="display: inline;height: 35px" placeholder="请输入手机号">
+					</div>
+					<div style="width: 145px;font-size: larger; position: relative;top: 10px;display: inline">
+						<input type="button" id="codeBtn" value="免费获取验证码" style="display: inline"/>
+					</div>
+					<div style="width: 285px; position: relative;top: 15px;">
+						<input id="verifycode" class="form-control" type="text" style="display: inline" placeholder="验证码">
+					</div>
+					<div class="checkbox"  style="position: relative;top: 20px; left: 10px;">
+						
+							<span id="msg" style="color: red"></span>
+						
+					</div>
+					<button id="login" type="button" class="btn btn-primary btn-lg btn-block"  style="width: 350px; position: relative;top: 20px;">登录</button>
+				</div>
+			</form>
+		</div>
+	</div>
+</body>
+<script type="text/javascript">
+	//60秒后再次获取验证码
+	var countdown=60;
+	function settime(obj) {
+		if (countdown == 0) {
+			obj.removeAttr("disabled");
+			obj.val("免费获取验证码");
+			countdown = 60;
+			return;
+		} else {
+			obj.attr("disabled", true);
+			obj.val("重新发送(" + countdown + ")");
+			countdown--;
+		}
+		setTimeout(function() {
+					settime(obj) }
+				,1000)
+	}
+	//获取验证码
+	$("#codeBtn").click(function () {
+		var phone=$("#phone").val();
+		if (isPhoneNo(phone)){
+			settime($("#codeBtn"));
+			$.ajax({
+				url:"/crm/user/getcode?phone="+phone,
+				type:"get",
+				dataType:"json",
+				success:function (obj) {
+					if (obj.code!=1001){
+						$("#msg").text(obj.message)
+					}
+				}
+			});
+		}else {
+			$("#msg").text("手机号格式错误！")
+		}
+	});
+	//验证手机号是否符合规范
+	function isPhoneNo(phone) {
+		var pattern = /^1[34578]\d{9}$/;
+		return pattern.test(phone);
+	}
+
+	$("#login").click(function () {
+		$.ajax({
+			url:"/crm/user/login",
+			data:{"loginact":$("#loginact").val(),"loginpwd":$("#loginpwd").val()},
+			type:"post",
+			dataType:"json",
+			success:function (data) {
+				if (data.code==1001){
+					location.href="workbench/index.html";
+				}else {
+					$("#msg").text(data.message)
+				}
+			}
+		})
+	})
+</script>
+</html>
