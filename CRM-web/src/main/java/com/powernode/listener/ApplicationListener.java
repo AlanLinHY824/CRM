@@ -2,6 +2,7 @@ package com.powernode.listener;
 
 import com.powernode.workbench.pojo.TblDicValue;
 import com.powernode.workbench.service.DicService;
+import com.powernode.workbench.service.impl.DicServiceImpl;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.context.support.WebApplicationContextUtils;
 
@@ -23,7 +24,7 @@ public class ApplicationListener implements ServletContextListener {
     @Override
     public void contextInitialized(ServletContextEvent event) {
         WebApplicationContextUtils.getRequiredWebApplicationContext(event.getServletContext()).getAutowireCapableBeanFactory().autowireBean(this);
-//        DicServiceImpl dicService = (DicServiceImpl)(WebApplicationContextUtils.getWebApplicationContext(event.getServletContext()).getBean("dicServiceImpl"));
+        DicServiceImpl dicService = (DicServiceImpl)(WebApplicationContextUtils.getWebApplicationContext(event.getServletContext()).getBean("dicServiceImpl"));
         ServletContext application = event.getServletContext();
         ResourceBundle bundle = ResourceBundle.getBundle("properties/Stage2Possibility");
         Enumeration<String> keys = bundle.getKeys();
